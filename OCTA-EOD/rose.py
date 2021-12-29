@@ -83,14 +83,14 @@ def get_train_dataloader(batch_size, shuffle, num_workers, type='ROSE-1/DVC/'):
     return data_loader_train
 
 def get_test_dataloader(batch_size, shuffle, num_workers, type='ROSE-1/DVC/'):
-    dataset_test = DatasetGenerator(path_to_img_dir=PATH_TO_IMAGES_DIR_ROOT + type + "test/")
+    dataset_test = DatasetGenerator(path_to_img_dir=PATH_TO_IMAGES_DIR_ROOT + type + "test/", data_type = type)
     data_loader_test = DataLoader(dataset=dataset_test, batch_size=batch_size,shuffle=shuffle, num_workers=num_workers, pin_memory=True)
     return data_loader_test
 
 
 if __name__ == "__main__":
     #for debug   
-    dataloader_train = get_train_dataloader(batch_size=2, shuffle=True, num_workers=0, type='ROSE-1/DVC/')
+    dataloader_train = get_test_dataloader(batch_size=2, shuffle=True, num_workers=0, type='ROSE-1/SVC_DVC/')
     for batch_idx, (image, mask) in enumerate(dataloader_train):
         print(image.shape)
         print(mask.shape)
