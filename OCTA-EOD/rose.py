@@ -55,6 +55,7 @@ class DatasetGenerator(Dataset):
         self.imageIDs = imageIDs
         self.maskIDs = maskIDs
         self.transform_octa = transforms.Compose([transforms.ToTensor()])
+        #self.transform_octa = transforms.Compose([transforms.Resize((224,224)),transforms.ToTensor()]) #for cenet
 
     def __getitem__(self, index):
         """
@@ -66,10 +67,11 @@ class DatasetGenerator(Dataset):
         image = self.imageIDs[index]
         mask = self.maskIDs[index]
 
-        image = Image.open(image)#.convert('L')
+        image = Image.open(image)#.convert('RGB')
         image = self.transform_octa(image)
         mask = Image.open(mask).convert('L')
         mask = self.transform_octa(mask)
+        #mask = torch.as_tensor(mask, dtype=torch.long) #for CrossEntropyLoss
   
         return image, mask
 
