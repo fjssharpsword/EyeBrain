@@ -2,7 +2,7 @@
 """
 Spectral Decay Regularizer.
 Author: Jason.Fang
-Update time: 15/03/2022
+Update time: 16/03/2022
 """
 
 import math
@@ -12,6 +12,7 @@ from torch.nn import Module, Parameter
 import torch.nn.functional as F
 from torch.nn.modules.utils import _single, _pair, _triple
 from torch.nn.modules import conv
+from torch.nn.utils import spectral_norm
 
 class SpecConv2d(conv._ConvNd):
     r"""
@@ -26,8 +27,6 @@ class SpecConv2d(conv._ConvNd):
         groups = 1
         bias = False
         super(SpecConv2d, self).__init__(in_channels, out_channels, kernel_size, stride, padding, dilation, False, _pair(0), groups, bias, 'zeros')
-
-        self.reg = reg
 
     def forward(self, input):
         return F.conv2d(input, self.weight, self.bias, self.stride, self.padding, self.dilation, self.groups)
@@ -54,33 +53,18 @@ class SpecConv2d(conv._ConvNd):
         #return left vector, sigma, right vector
         return u, s, v
 
-    def _specgrad(self, w_matrix):
+    def _specgrad(self):
         
-        self.shape = conv.weight.shape
-        a, b, c, d = self.shape
-        dim1, dim2 = a * c, b * d
-        self.rank = max(int(round(rank_scale * min(a, b))), 1)
-        self.P = nn.Parameter(torch.zeros(dim1, self.rank))
-        self.Q = nn.Parameter(torch.zeros(self.rank, dim2))
+        spec_module = spectral_norm(self)
+        spec_weight = torch.matmul(spec_module.weight_u.unsqueeze(1), spec_module.weight_v.unsqueeze(0))
 
-        #SVD approximated solve
-        #W_hat = torch.matmul(P, Q)
-        u_p, s_p, v_p = self._power_iteration(P) 
-        u_q, s_q, v_q = self._power_iteration(Q)
+        wgrad = spec_weight.view(self.weight.shape)
 
-        #calculate gradient
-        #Nuclear norm: torch.sum(abs(S)) = torch.norm(S, p=1) <==> L1 
-        #Frobenius norm: torch.norm(S,p=2) <==> L2 
-        #Spectral norm: torch.max(S) = torch.norm(S,float('inf'))
-        output[0] = torch.matmul(u_p, v_p.T) # *s_p 
-        output[-1] = torch.matmul(u_q, v_q.T) # * s_q
-
-        return output
+        return wgrad
 
     def updategrad(self, coef=1E-4):
-    
-       Wgrad = self._specgrad(self.weight)
-
+        
+        Wgrad = self._specgrad()
         if self.weight.grad is None:
             self.weight.grad = coef * Wgrad
         else:
@@ -104,4 +88,5 @@ if __name__ == "__main__":
     sconv = SpecConv2d(in_channels=3, out_channels=16, kernel_size=5, stride=2).cuda()
     out = sconv(x)
     print(out.shape)
+    weightdecay(sconv)
 
