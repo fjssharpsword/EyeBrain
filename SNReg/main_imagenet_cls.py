@@ -34,7 +34,7 @@ from SpectralRegularizer import SpectralRegularizer
 os.environ['CUDA_VISIBLE_DEVICES'] = "0,1,2,3,4,5,6,7"
 max_epoches = 100
 batch_size = 128
-CKPT_PATH = '/data/pycode/EyeBrain/Optimizer/ckpts/imagenet1k_resnet50.pkl' 
+CKPT_PATH = '/data/pycode/EyeBrain/SNReg/ckpts/imagenet1k_resnet50.pkl' 
 #nohup python main_imagenet_cls.py > logs/imagenet1k_resnet.log 2>&1 &    #3.21: PID=41976
 DATA_PATH = '/data/fjsdata/ImageNet/ILSVRC2012_data/'
 
