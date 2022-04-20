@@ -29,15 +29,15 @@ import seaborn as sns
 #define by myself
 from utils.common import count_bytes
 from resnet import resnet50
+from vit import ViT
 from SpectralRegularizer import SpectralRegularizer
 #config
 os.environ['CUDA_VISIBLE_DEVICES'] = "0,1,2,3,4,5,6,7"
+DATA_PATH = '/data/fjsdata/ImageNet/ILSVRC2012_data/'
 max_epoches = 100
 batch_size = 128
-CKPT_PATH = '/data/pycode/EyeBrain/SNReg/ckpts/imagenet1k_resnet50.pkl' 
-#nohup python main_imagenet_cls.py > logs/imagenet1k_resnet.log 2>&1 &    #3.21: PID=41976
-DATA_PATH = '/data/fjsdata/ImageNet/ILSVRC2012_data/'
-
+CKPT_PATH = '/data/pycode/EyeBrain/SNReg/ckpts/imagenet1k_cnn.pkl' 
+#nohup python main_imagenet_cls.py > logs/main_imagenet_cls.log 2>&1 &    #PID: xx
 def Train():
     print('********************load data********************')
     # Normalize training set together with augmentation
@@ -68,17 +68,18 @@ def Train():
     print('********************load data succeed!********************')
 
     print('********************load model********************')
-    model = resnet50(pretrained=True, num_classes=1000)
+    model = resnet50(pretrained=True, num_classes=1000).cuda()
+    #model = ViT(image_size = 224, patch_size = 32, num_classes = 1000, dim = 1024, depth = 6,heads = 16, mlp_dim = 2048).cuda()
     if os.path.exists(CKPT_PATH):
         checkpoint = torch.load(CKPT_PATH)
         model.load_state_dict(checkpoint) #strict=False
         print("=> Loaded well-trained checkpoint from: " + CKPT_PATH)
     model = nn.DataParallel(model).cuda()  # make model available multi GPU cores training    
     torch.backends.cudnn.benchmark = True  # improve train speed slightly
-    #optimizer_model = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=1e-4) #lr=0.1
-    optimizer_model = optim.SGD(model.parameters(), lr=0.1, momentum=0.9) #default: weight_decay =0, no L2 weight decay
+    optimizer_model = optim.SGD(model.parameters(), lr=0.1, momentum=0.9, weight_decay=1e-3) #weight_decay=1e-4
+    #optimizer_model = optim.SGD(model.parameters(), lr=0.1, momentum=0.9) #default: weight_decay =0, no L2 weight decay
     lr_scheduler_model = lr_scheduler.MultiStepLR(optimizer_model, milestones=[30, 60, 90], gamma=0.2) #learning rate decay
-    spec_reg =SpectralRegularizer(model, coef=1e-4, p=1, is_spec=False).cuda() 
+    #spec_reg =SpectralRegularizer(model, coef=1e-3, p=2, is_spec=True).cuda() 
     criterion = nn.CrossEntropyLoss().cuda()
     print('********************load model succeed!********************')
 
@@ -99,7 +100,7 @@ def Train():
                 var_out = model(var_image)
                 # backward and update parameters
                 optimizer_model.zero_grad()
-                loss_tensor = criterion.forward(var_out, var_label) + spec_reg(model)
+                loss_tensor = criterion.forward(var_out, var_label) #+ spec_reg(model)
                 loss_tensor.backward()
                 optimizer_model.step()
                 #show 
@@ -138,7 +139,7 @@ def Train():
 
         time_elapsed = time.time() - since
         print('Training epoch: {} completed in {:.0f}m {:.0f}s'.format(epoch+1, time_elapsed // 60 , time_elapsed % 60))
-        log_writer.add_scalars('ImageNet1K/ResNet', {'Train_L1':np.mean(loss_train)}, epoch+1)
+        log_writer.add_scalars('ImageNet1K/CNN_Coef1e3', {'Train_SGD_L2':np.mean(loss_train)}, epoch+1)
     log_writer.close() #shut up the tensorboard
 
 def Test():
@@ -159,6 +160,7 @@ def Test():
 
     print('********************load model********************')
     model = resnet50(pretrained=True, num_classes=1000).cuda()
+    #model = ViT(image_size = 224, patch_size = 32, num_classes = 1000, dim = 1024, depth = 6,heads = 16, mlp_dim = 2048).cuda()
     if os.path.exists(CKPT_PATH):
         checkpoint = torch.load(CKPT_PATH)
         model.load_state_dict(checkpoint) #strict=False
